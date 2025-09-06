@@ -1,0 +1,32 @@
+# Test environment - no external dependencies
+version: '3.8'
+
+services:
+  # PostgreSQL with test data
+  postgres-test:
+    image: pgvector/pgvector:pg15
+    environment:
+      POSTGRES_DB: storydb_test
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpass
+    ports:
+      - "5433:5432"  # Different port to avoid conflicts
+    volumes:
+      - ./simple_schema.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./test_data.sql:/docker-entrypoint-initdb.d/test_data.sql
+
+  # Memory API without OpenAI dependency
+  memory-api-test:
+    build: .
+    ports:
+      - "8001:8000"  # Different port
+    environment:
+      DATABASE_URL: postgresql://testuser:testpass@postgres-test/storydb_test
+      # No OPENAI_API_KEY - will skip embedding generation
+    depends_on:
+      - postgres-test
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3

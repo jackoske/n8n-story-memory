@@ -1,0 +1,155 @@
+{
+  "name": "Storytelling AI with Memory",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "story-request",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Story Request Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://memory-api:8000/children/{{ $json.child_id }}",
+        "options": {}
+      },
+      "id": "get-child-profile",
+      "name": "Get Child Profile",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://memory-api:8000/stories/search",
+        "qs": {
+          "child_id": "={{ $json.id }}",
+          "query": "={{ $node['Story Request Webhook'].json.topic }}",
+          "limit": "3"
+        }
+      },
+      "id": "search-memories",
+      "name": "Search Past Stories",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4",
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are a children's storyteller. Create engaging stories based on the child's profile and past stories for continuity."
+          },
+          {
+            "role": "user",
+            "content": "Child Profile: {{ $node['Get Child Profile'].json }}\n\nPast Stories: {{ $node['Search Past Stories'].json }}\n\nNew Request: {{ $node['Story Request Webhook'].json.request }}\n\nCreate a new story that connects to their interests and past adventures."
+          }
+        ]
+      },
+      "id": "generate-story",
+      "name": "Generate Story with OpenAI",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://memory-api:8000/stories",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": {
+          "child_id": "={{ $node['Get Child Profile'].json.id }}",
+          "story_text": "={{ $node['Generate Story with OpenAI'].json.choices[0].message.content }}",
+          "difficulty": "={{ $node['Get Child Profile'].json.reading_level }}",
+          "summary": "={{ $node['Generate Story with OpenAI'].json.choices[0].message.content.substring(0, 200) }}",
+          "keywords": "={{ $node['Story Request Webhook'].json.topic.split(' ') }}"
+        }
+      },
+      "id": "save-story",
+      "name": "Save Story to Memory",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": {
+          "story": "={{ $node['Generate Story with OpenAI'].json.choices[0].message.content }}",
+          "story_id": "={{ $node['Save Story to Memory'].json.id }}",
+          "difficulty": "={{ $node['Get Child Profile'].json.reading_level }}"
+        }
+      },
+      "id": "respond",
+      "name": "Respond with Story",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1340, 300]
+    }
+  ],
+  "connections": {
+    "Story Request Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get Child Profile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Child Profile": {
+      "main": [
+        [
+          {
+            "node": "Search Past Stories",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Past Stories": {
+      "main": [
+        [
+          {
+            "node": "Generate Story with OpenAI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Story with OpenAI": {
+      "main": [
+        [
+          {
+            "node": "Save Story to Memory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Story to Memory": {
+      "main": [
+        [
+          {
+            "node": "Respond with Story",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
