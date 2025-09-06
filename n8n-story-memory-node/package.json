@@ -1,0 +1,60 @@
+{
+	"name": "n8n-nodes-story-memory",
+	"version": "1.0.0",
+	"description": "n8n node to search and retrieve stories from Story Memory API for context in AI prompts",
+	"keywords": [
+		"n8n-community-node-package",
+		"n8n",
+		"story",
+		"memory",
+		"context",
+		"ai",
+		"search"
+	],
+	"license": "MIT",
+	"homepage": "https://github.com/yourusername/n8n-nodes-story-memory",
+	"author": {
+		"name": "Your Name",
+		"email": "your.email@example.com"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/yourusername/n8n-nodes-story-memory.git"
+	},
+	"main": "index.js",
+	"scripts": {
+		"build": "tsc && gulp build:icons",
+		"dev": "tsc --watch",
+		"format": "prettier nodes credentials --write",
+		"lint": "eslint nodes credentials package.json",
+		"lintfix": "eslint nodes credentials package.json --fix",
+		"prepublishOnly": "npm run build && npm run lint -c .eslintrc.prepublish.js nodes credentials package.json"
+	},
+	"files": [
+		"dist"
+	],
+	"n8n": {
+		"n8nNodesApiVersion": 1,
+		"credentials": [
+			"dist/credentials/StoryMemoryApi.credentials.js"
+		],
+		"nodes": [
+			"dist/nodes/StoryMemorySearch.node.js"
+		]
+	},
+	"devDependencies": {
+		"@typescript-eslint/parser": "^5.45.0",
+		"eslint": "^8.29.0",
+		"eslint-plugin-n8n-nodes-base": "^1.11.0",
+		"gulp": "^4.0.2",
+		"n8n-workflow": "^1.0.0",
+		"prettier": "^2.7.1",
+		"typescript": "^4.8.4"
+	},
+	"peerDependencies": {
+		"n8n-workflow": "*"
+	},
+	"engines": {
+		"node": ">=16.0.0"
+	}
+}

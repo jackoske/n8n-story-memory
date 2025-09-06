@@ -1,0 +1,327 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// Set default values and parameters\nreturn [{\n  child_id: $input.first()?.json?.child_id || 1,\n  continue_story: $input.first()?.json?.continue_story || false,\n  difficulty: $input.first()?.json?.difficulty || 2,\n  theme: $input.first()?.json?.theme || 'adventure'\n}];"
+      },
+      "id": "b27562e3-b8b9-43f3-80b9-e2bf4ae71eb9",
+      "name": "Initialize Parameters",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -48,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "continue_check",
+              "leftValue": "={{ $json.continue_story }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "abc42b5e-e41b-421a-b8bc-848650c0f1d0",
+      "name": "Continue or New Story?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        192,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://storyapi.jackskehan.tech/stories/latest/{{ $json.child_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer your-secret-api-key-here"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "ea464549-5c7e-4a5e-8ca0-7ff7b398bc73",
+      "name": "Get Latest Story",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        400,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare story generation prompt based on whether continuing or starting new\nconst item = $input.first().json;\nconst params = $('Initialize Parameters').first().json;\n\nlet prompt, contextText = '';\n\nif (params.continue_story && item.story_text) {\n  // Continuing existing story\n  contextText = item.story_text;\n  prompt = `Continue this story for a child (difficulty level ${params.difficulty}):\n\n\"${contextText}\"\n\nWrite the next chapter/part of this story. Keep the same characters and setting. Make it engaging and age-appropriate.`;\n} else {\n  // Starting new story\n  prompt = `Create a new ${params.theme} story for a child (difficulty level ${params.difficulty}). Make it engaging, educational, and age-appropriate. Include interesting characters and a meaningful lesson.`;\n}\n\nreturn [{\n  prompt: prompt,\n  child_id: params.child_id,\n  difficulty: params.difficulty,\n  theme: params.theme,\n  context_text: contextText,\n  is_continuation: params.continue_story && item.story_text ? true : false\n}];"
+      },
+      "id": "6cc3784d-adc2-443c-a8f7-b85e7daa60a7",
+      "name": "Prepare Story Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// For new stories when no continuation is requested\nconst params = $('Initialize Parameters').first().json;\n\nconst prompt = `Create a new ${params.theme} story for a child (difficulty level ${params.difficulty}). Make it engaging, educational, and age-appropriate. Include interesting characters and a meaningful lesson.`;\n\nreturn [{\n  prompt: prompt,\n  child_id: params.child_id,\n  difficulty: params.difficulty,\n  theme: params.theme,\n  context_text: '',\n  is_continuation: false\n}];"
+      },
+      "id": "811e6ec9-f718-408c-9738-231828c2b78a",
+      "name": "New Story Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are a creative children's story writer. Generate stories that are engaging, educational, and age-appropriate. Always include a summary and relevant keywords for the story.",
+              "role": "system"
+            },
+            {
+              "content": "={{ $json.prompt }}"
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 1000,
+          "temperature": 0.8
+        }
+      },
+      "id": "33fda23b-079a-4666-aefe-ab90c815a9c6",
+      "name": "Generate Story with AI",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.3,
+      "position": [
+        848,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse AI response and prepare data for saving\nconst aiResponse = $input.first().json.message.content;\nconst metadata = $('Prepare Story Prompt').first()?.json || $('New Story Prompt').first()?.json;\n\n// Extract summary and keywords (simple approach - could be enhanced)\nconst lines = aiResponse.split('\\n').filter(line => line.trim());\nconst storyText = aiResponse;\n\n// Generate a simple summary (first 2 sentences)\nconst sentences = storyText.split(/[.!?]+/).filter(s => s.trim());\nconst summary = sentences.slice(0, 2).join('. ') + (sentences.length > 2 ? '.' : '');\n\n// Generate keywords based on theme and content\nconst keywords = [\n  metadata.theme,\n  metadata.is_continuation ? 'continuation' : 'new_story',\n  'children',\n  `difficulty_${metadata.difficulty}`\n].join(',');\n\nreturn [{\n  story_text: storyText,\n  summary: summary,\n  keywords: keywords,\n  child_id: metadata.child_id,\n  difficulty: metadata.difficulty,\n  is_continuation: metadata.is_continuation\n}];"
+      },
+      "id": "7166ff5c-8b49-426e-916e-2d16db18e72d",
+      "name": "Process Story Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1072,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://storyapi.jackskehan.tech/stories",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer your-secret-api-key-here"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "child_id",
+              "value": "={{ $json.child_id }}"
+            },
+            {
+              "name": "story_text",
+              "value": "={{ $json.story_text }}"
+            },
+            {
+              "name": "difficulty",
+              "value": "={{ $json.difficulty }}"
+            },
+            {
+              "name": "summary",
+              "value": "={{ $json.summary }}"
+            },
+            {
+              "name": "keywords",
+              "value": "={{ $json.keywords }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "dc21946b-0aae-4a26-93e1-4eb7cea255d4",
+      "name": "Save Story to Database",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1280,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Final response with story and metadata\nconst storyData = $('Process Story Response').first().json;\nconst saveResponse = $input.first().json;\n\nreturn [{\n  success: true,\n  story_id: saveResponse.id || saveResponse.story_id,\n  story_text: storyData.story_text,\n  summary: storyData.summary,\n  is_continuation: storyData.is_continuation,\n  child_id: storyData.child_id,\n  message: storyData.is_continuation ? 'Story continued successfully!' : 'New story created successfully!'\n}];"
+      },
+      "id": "21485f5e-7334-434e-8942-9c21c9b459cc",
+      "name": "Format Final Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1504,
+        400
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Initialize Parameters": {
+      "main": [
+        [
+          {
+            "node": "Continue or New Story?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Continue or New Story?": {
+      "main": [
+        [
+          {
+            "node": "Get Latest Story",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "New Story Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Latest Story": {
+      "main": [
+        [
+          {
+            "node": "Prepare Story Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Story Prompt": {
+      "main": [
+        [
+          {
+            "node": "Generate Story with AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "New Story Prompt": {
+      "main": [
+        [
+          {
+            "node": "Generate Story with AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Story with AI": {
+      "main": [
+        [
+          {
+            "node": "Process Story Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Story Response": {
+      "main": [
+        [
+          {
+            "node": "Save Story to Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Story to Database": {
+      "main": [
+        [
+          {
+            "node": "Format Final Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "",
+  "meta": {
+    "instanceId": "baf0280200aba7a63f6e5d79ff51c254fa31a4588990d9c6d48dcf8cb67d2074"
+  },
+  "tags": []
+}

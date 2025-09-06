@@ -7,7 +7,7 @@ Run this after starting docker-compose to verify everything works
 import requests
 import json
 
-API_BASE = "http://localhost:8000"
+API_BASE = "http://localhost:8001"
 API_KEY = "your-secret-api-key-here"  # Should match API_KEY in .env
 
 # Headers with authentication

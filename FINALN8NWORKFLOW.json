@@ -1,0 +1,657 @@
+{
+  "name": "My workflow 3",
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.bfl.ai/v1/flux-kontext-pro",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "prompt",
+              "value": "={{ $json.prompt }}"
+            },
+            {
+              "name": "aspect_ratio",
+              "value": "1:1"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "43f8ae4e-29a0-4bb4-86e0-45ff45a0f5e1",
+      "name": "Generate Images (POST)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1264,
+        -784
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputData = $input.first().json;\nconsole.log('=== BFL API RESPONSE DEBUG ===');\nconsole.log('Full response:', JSON.stringify(inputData, null, 2));\nconsole.log('Response keys:', Object.keys(inputData));\nconsole.log('ID:', inputData.id);\nconsole.log('Polling URL:', inputData.polling_url);\nconsole.log('=== END DEBUG ===');\n\nreturn { json: inputData };"
+      },
+      "id": "92ac9b47-964e-4446-8c64-3fa0288d725f",
+      "name": "Debug BFL Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        -784
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Generate Images (POST)').item.json.polling_url }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "f529f069-c070-4677-a02d-db463c0ddde4",
+      "name": "Poll Images",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1360,
+        -400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d35ae158-063c-49e6-a13b-3c7fe086534f",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "=Ready",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "faed990e-9550-4996-9a32-90fa162ec7ee",
+      "name": "IF Status Ready",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1568,
+        -400
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 1
+      },
+      "id": "f81874ae-3888-4f8f-9ce3-b69fab3b89f0",
+      "name": "Wait 1s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1536,
+        48
+      ],
+      "webhookId": "b7b3b366-8210-4e20-883f-a959eeb6ee1b"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"error\": \"Failed to generate story\", \"details\": $json } }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "GET, POST, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type, Authorization"
+              }
+            ]
+          }
+        }
+      },
+      "id": "4c3f88bc-6254-4e19-8150-47c9f6a7265c",
+      "name": "Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        416,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {} }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "GET, POST, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type, Authorization"
+              }
+            ]
+          }
+        }
+      },
+      "id": "ffb6eafc-cd2b-4312-b6a2-022b0d2c6c5a",
+      "name": "OPTIONS Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -64,
+        -704
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-story",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "f1e24310-5509-4a38-80fa-d20d8b00461c",
+      "name": "Webhook Trigger1",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -368,
+        -480
+      ],
+      "webhookId": "mamatell-story-generator"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract and validate input data\nconst inputData = $input.first().json;\nconst kidName = inputData.kidName || 'Emma';\nconst storyTopic = inputData.storyTopic || 'a magical forest';\nconst storyLength = inputData.storyLength || 'Short';\nconst characterDescription = inputData.characterDescription || 'a brave little girl';\nconst slideCount = storyLength === \"Short\" ? 5 : storyLength === \"Medium\" ? 7 : 10;\nconst seedId = Math.floor(Math.random() * 1000000);\nconst useContext = inputData.useContext || false;\nreturn { json: { kidName, storyTopic, storyLength, characterDescription, slideCount, seedId, useContext } };"
+      },
+      "id": "5ec0b2d9-0ede-45d9-8ecb-26935311e397",
+      "name": "Process Input1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -112,
+        -512
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "use-context-check",
+              "leftValue": "={{ $json.useContext }}",
+              "rightValue": "=true",
+              "operator": {
+                "type": "boolean",
+                "operation": "equal"
+              }
+            },
+            {
+              "id": "6f1c0afd-8c4e-43b1-9c81-40760110b0c0",
+              "leftValue": "",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "9a2c09f1-aaea-401b-b8c2-02a56275628a",
+      "name": "Check Use Context",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        48,
+        -464
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://storyapi.jackskehan.tech/stories/latest/1",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer your-secret-api-key-here"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f2b5c76d-8d96-4ccd-8782-74ab0141a565",
+      "name": "Get Previous Story Context",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        224,
+        -288
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge context with input data\nconst inputData = $input.first().json;\nlet contextData = null;\n\n// Check if we have context from previous story\nif ($input.all().length > 1) {\n  contextData = $input.all()[1].json;\n}\n\n// Prepare the final data with optional context\nconst finalData = {\n  ...inputData,\n  previousStoryContext: contextData ? contextData.story_text : null,\n  previousStorySummary: contextData ? contextData.summary : null\n};\n\nreturn { json: finalData };"
+      },
+      "id": "ddbe8d45-98da-4b6b-8bcf-9a1beaea56b3",
+      "name": "Merge Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        352,
+        -688
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare OpenAI prompt with optional context\nconst data = $input.first().json;\nconst { kidName, storyTopic, characterDescription, slideCount, previousStoryContext, previousStorySummary } = data;\n\nlet basePrompt = `Create a ${slideCount}-page children's story about ${kidName}, ${characterDescription}, on the topic of ${storyTopic}. Format as JSON with slides array containing title, description, and image_prompt for each page.`;\n\nif (previousStoryContext) {\n  basePrompt = `Continue from previous story context: \"${previousStorySummary || previousStoryContext.substring(0, 200)}...\"\n\n${basePrompt}\n\nMake sure this new story builds upon or references elements from the previous story to maintain continuity.`;\n}\n\nreturn { json: { ...data, prompt: basePrompt } };"
+      },
+      "id": "27b9a983-05f6-4b0e-ba1c-4f75ba7512bd",
+      "name": "Prepare Prompt with Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        -832
+      ]
+    },
+    {
+      "parameters": {
+        "options": {},
+        "requestOptions": {}
+      },
+      "id": "54963461-a3f7-463a-8412-8c23dead9555",
+      "name": "Generate Story Text1",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        672,
+        -880
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "niXKvV4rgqS6jeHQ",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parsing story parts ... (same as your original Parse Story1 node)"
+      },
+      "id": "0d335f9a-86ba-4a61-a682-1d0a3f70856c",
+      "name": "Parse Story1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        864,
+        -880
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://storyapi.jackskehan.tech/stories",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer your-secret-api-key-here"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "child_id",
+              "value": "1"
+            },
+            {
+              "name": "story_text",
+              "value": "={{ $json.story_text }}"
+            },
+            {
+              "name": "difficulty",
+              "value": "2"
+            },
+            {
+              "name": "summary",
+              "value": "={{ $json.summary }}"
+            },
+            {
+              "name": "keywords",
+              "value": "={{ $json.keywords }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "51e032c7-bef9-4647-a282-b328d4ed8276",
+      "name": "Save Story to Memory",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1056,
+        -784
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.result.sample }}",
+        "options": {}
+      },
+      "id": "9591790a-56ed-4bf2-b148-673a427f2b19",
+      "name": "Get Result",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1776,
+        -576
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine story and images ... (same as your original Combine Story & Images1 node)"
+      },
+      "id": "509fab89-8f61-4979-a843-48d5ac49c213",
+      "name": "Combine Story & Images1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1936,
+        -576
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "GET, POST, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type, Authorization"
+              }
+            ]
+          }
+        }
+      },
+      "id": "86e893a8-0fa5-40da-9c75-ffe5869316c0",
+      "name": "Webhook Response1",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        2128,
+        -576
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Generate Images (POST)": {
+      "main": [
+        [
+          {
+            "node": "Debug BFL Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Debug BFL Response": {
+      "main": [
+        [
+          {
+            "node": "Poll Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Poll Images": {
+      "main": [
+        [
+          {
+            "node": "IF Status Ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Status Ready": {
+      "main": [
+        [
+          {
+            "node": "Get Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait 1s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 1s": {
+      "main": [
+        [
+          {
+            "node": "Poll Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Result": {
+      "main": [
+        [
+          {
+            "node": "Combine Story & Images1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Story & Images1": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Trigger1": {
+      "main": [
+        [
+          {
+            "node": "Process Input1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Input1": {
+      "main": [
+        [
+          {
+            "node": "Check Use Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Use Context": {
+      "main": [
+        [
+          {
+            "node": "Merge Context",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Previous Story Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Context": {
+      "main": [
+        [
+          {
+            "node": "Prepare Prompt with Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Prompt with Context": {
+      "main": [
+        [
+          {
+            "node": "Generate Story Text1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Story Text1": {
+      "main": [
+        [
+          {
+            "node": "Parse Story1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Story1": {
+      "main": [
+        [
+          {
+            "node": "Save Story to Memory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Story to Memory": {
+      "main": [
+        [
+          {
+            "node": "Generate Images (POST)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Previous Story Context": {
+      "main": [
+        [
+          {
+            "node": "Merge Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "0a9ae5a9-96aa-4992-89d8-05b7890fd89a",
+  "meta": {
+    "instanceId": "baf0280200aba7a63f6e5d79ff51c254fa31a4588990d9c6d48dcf8cb67d2074"
+  },
+  "id": "ZZWsIeXgqoNTha27",
+  "tags": []
+}
