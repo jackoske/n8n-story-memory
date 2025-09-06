@@ -8,6 +8,7 @@ services:
       POSTGRES_PASSWORD: storypass
     ports:
       - "5433:5432"
+    restart: unless-stopped
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./simple_schema.sql:/docker-entrypoint-initdb.d/init.sql
@@ -17,14 +18,21 @@ services:
     build: .
     ports:
       - "8001:8001"
+    restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://storyuser:storypass@postgres/storydb
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      PORT: 8001
+      - DATABASE_URL=postgresql://storyuser:storypass@postgres/storydb
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - PORT=8001
     depends_on:
       - postgres
     volumes:
       - .:/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
 volumes:
   postgres_data:

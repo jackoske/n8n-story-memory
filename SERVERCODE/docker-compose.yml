@@ -1,0 +1,115 @@
+services:
+  shooteminthedark:
+    build:
+      context: ./ShootEmInTheDark
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+
+  lgs:
+    build:
+      context: ./LGS
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
+    environment:
+      - FLASK_ENV=production
+
+  # Twitter API Service
+  twitter-api:
+    build:
+      context: ./twitterapi
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - API_KEY=${API_KEY:-}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3002,http://127.0.0.1:3002,https://fake-twitter.jackskehan.tech}
+    volumes:
+      - ./twitterapi/data:/app/data:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Twitter Frontend Service
+  twitter-frontend:
+    build:
+      context: ./frontend
+      args:
+        - REACT_APP_API_URL=${REACT_APP_API_URL}
+        - REACT_APP_API_KEY=${REACT_APP_API_KEY}
+    ports:
+      - "3002:3000"
+    restart: unless-stopped
+    environment:
+      - REACT_APP_API_URL=${REACT_APP_API_URL}
+      - REACT_APP_API_KEY=${REACT_APP_API_KEY}
+    depends_on:
+      twitter-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+  cv-holographic:
+    build:
+      context: ./cv-holo
+    ports:
+      - "4173:4173"
+    restart: unless-stopped
+
+  scorched-saint:
+    build:
+      context: ./DavesHotsauce
+    ports:
+      - "3003:80"  # Note: changed from 80 to 4173
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+
+  # N8N Story Memory Backend
+  n8n-story-memory:
+    build:
+      context: ./n8n-story-memory
+    ports:
+      - "8001:8001"
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://storyuser:storypass@n8n-story-postgres/storydb
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - PORT=8001
+    depends_on:
+      - n8n-story-postgres
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # PostgreSQL for N8N Story Memory
+  n8n-story-postgres:
+    image: pgvector/pgvector:pg15
+    environment:
+      POSTGRES_DB: storydb
+      POSTGRES_USER: storyuser
+      POSTGRES_PASSWORD: storypass
+    ports:
+      - "5433:5432"
+    restart: unless-stopped
+    volumes:
+      - n8n_story_postgres_data:/var/lib/postgresql/data
+      - ./n8n-story-memory/simple_schema.sql:/docker-entrypoint-initdb.d/init.sql
+
+volumes:
+  n8n_story_postgres_data:
