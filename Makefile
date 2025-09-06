@@ -16,7 +16,6 @@ start:
 	docker-compose up -d
 	@echo "✅ System started!"
 	@echo "📍 Memory API: http://localhost:8000"
-	@echo "📍 n8n Interface: http://localhost:5678 (admin/admin)"
 	@echo "📍 Database: localhost:5432"
 
 test:
